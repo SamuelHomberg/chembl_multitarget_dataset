@@ -1,0 +1,14 @@
+queried_chembl.csv
+complete_matrix.pkl
+duplicate-target-smiles-pairs.pkl
+
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
