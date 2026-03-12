@@ -27,14 +27,15 @@ assert arr.shape[1] == unique_targets.shape[0]
 print("SMILES stats")
 act = np.sum(arr, 1)
 print(f"{arr.shape} SMILES / targets")
-print(f"{np.mean(act):>9.4f} mean targets per active smiles")
+print(f"{np.mean(act):>9.4f} mean num targets a smiles is active on")
 print(f"{np.std(act):>9.4f} std" )
 print(f"{np.max(act):>9} max")
 print(f"{np.min(act):>9} min")  
-print(f"{sum(np.isin(act, 0)):>9} true negatives") # true negatives
-print(f"{sum(np.isin(act, 1)):>9} true positives (one target)") # true positives on one target
-print(f"{sum(np.isin(act, 2)):>9} true positives (two targets)") # true positives on two target
-print(f"{sum(np.isin(act, 3)):>9} true positives (three targets)") # true positives on three target
-print(f"{sum(np.isin(act, 4)):>9} true positives (four targets)") # true positives on four target
+print()
+print(f"{sum(np.isin(act, 0)):>9} true negatives (active on zero targets)") # true negatives
+print(f"{sum(np.isin(act, 1)):>9} true positives (active on one target)") # true positives on one target
+print(f"{sum(np.isin(act, 2)):>9} true positives (active on two targets)") # true positives on two target
+print(f"{sum(np.isin(act, 3)):>9} true positives (active on three targets)") # true positives on three target
+print(f"{sum(np.isin(act, 4)):>9} true positives (active on four targets)") # true positives on four target
 print(f"{sum(~np.isin(act, 0)):>9} total true positives")# true positives
-print(f"{np.sum(act):>9} total actives (any target)") # total activities 
+print(f"{np.sum(act):>9} total actives (on any number of target)") # total activities 
