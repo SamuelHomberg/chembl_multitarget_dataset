@@ -11,7 +11,7 @@ Small python project to process the ChEMBL database (SQLite) and generate a clea
     *   `target_columns`: Array of target ChEMBL IDs corresponding to the matrix columns.
 
 
-## Usage
+## Create the dataset
 
 ```bash
 uv run main.py --db /path/to/chembl_XX.db 
@@ -27,3 +27,13 @@ If you have already run the script, you can skip re-querying the database by sup
 ```bash
 uv run main.py --csv queried_chembl.csv 
 ```
+
+## Using the dataset
+
+```py
+with open('complete_matrix.pkl', 'rb') as f:
+    arr, unique_rdkit_smiles, unique_targets = pickle.load(f)
+# declare unknown data points as inactive
+arr[arr == -1] = 0
+```
+For more options see [usage.py](usage.py).
