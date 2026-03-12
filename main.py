@@ -156,22 +156,38 @@ def find_conflicting_pchembl_values(df, cutoff=6):
     return exclude
 
 def build_complete_dataset_matrix(df, exclude, cutoff = 6):
-    # a unique_smiles by unique_targets matrix
-    rdkit_smiles = np.array(df['rdkit_smiles'], dtype=str)
-    unique_rdkit_smiles, _, _, _ = np.unique(rdkit_smiles,
-                                    return_index=True, return_inverse=True, return_counts=True)
-    targets = np.array(df['target_chembl_id'], dtype=str)
-    unique_targets = np.unique(targets)
+    print("Building dataset matrix...")
+    # Create mask for exclusion (conflicts and empty SMILES)
+    mask = np.ones(len(df), dtype=bool)
+    if len(exclude) > 0:
+        mask[exclude] = False
+    
+    # Also exclude empty smiles (failed standardizations)
+    all_smiles = df['rdkit_smiles'].values.astype(str)
+    mask = mask & (all_smiles != '')
+
+    # Filter data to valid entries only
+    valid_smiles = all_smiles[mask]
+    valid_targets = df['target_chembl_id'].values[mask].astype(str)
+    valid_pvals = df['pchembl_value'].values[mask]
+
+    # Identify unique sorted values from VALID data
+    unique_rdkit_smiles = np.unique(valid_smiles)
+    unique_targets = np.unique(valid_targets)
+
+    # Map values to indices
+    smiles_indices = np.searchsorted(unique_rdkit_smiles, valid_smiles)
+    target_indices = np.searchsorted(unique_targets, valid_targets)
+
+    # Initialize matrix with -1
     arr = np.full((unique_rdkit_smiles.shape[0], unique_targets.shape[0]), -1, dtype=np.int8)
 
+    # Calculate activity (0 or 1)
+    activities = np.where(valid_pvals < cutoff, 0, 1).astype(np.int8)
 
-    for i, row in tqdm(enumerate(df.itertuples()), total=len(df), desc='Building dataset matrix'):
-        if i in exclude:
-            continue
-        arr_smiles_idx = np.where(unique_rdkit_smiles == row.rdkit_smiles )[0].item()
-        arr_target_idx = np.where(unique_targets == row.target_chembl_id)[0].item()
-        activity = 0 if row.pchembl_value < cutoff else 1
-        arr[arr_smiles_idx][arr_target_idx] = activity
+    # Assign to matrix
+    arr[smiles_indices, target_indices] = activities
+    
     return arr, unique_rdkit_smiles, unique_targets
 
 
@@ -181,7 +197,8 @@ def main():
     parser.add_argument('--db', type=str, help='Path to the SQLite chembl database file.')
     parser.add_argument('--csv', type=str, help='Path to the CSV file (if database was already queried).')
     parser.add_argument('--cutoff', type=float, default=6, help='Cutoff value to devide actives from inactives')
-    parser.add_argument('--disable-warnings', type=bool, default=True, help='Disable rdkit warnings.')
+    parser.add_argument('--enable-warnings', action='store_false', dest='disable_warnings', help='Enable rdkit warnings.')
+    parser.set_defaults(disable_warnings=True)
     
     args = parser.parse_args()
 
