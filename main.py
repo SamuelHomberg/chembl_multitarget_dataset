@@ -115,44 +115,33 @@ def add_neutral_rdkit_smiles(df, disable_warnings=True):
     df.to_csv('queried_chembl.csv')
     return df
 
-def _hash_string(s):
-    """Hash a string to an integer of maxsize 2**64."""
-    return int(hashlib.md5(s.encode('utf-8')).hexdigest(), 16) % 2**64
-
 def find_conflicting_pchembl_values(df, cutoff=6):
+    print("Finding conflicting pchembl values (optimized)...")
+    
+    # Filter out rows that can't be part of a conflict check
+    df_clean = df.dropna(subset=['rdkit_smiles', 'target_chembl_id', 'pchembl_value']).copy()
+    
+    df_clean = df_clean[df_clean['rdkit_smiles'] != '']
 
-    df['rdkit_smiles'] = df['rdkit_smiles'].fillna('')
-    pvals =  np.array(df["pchembl_value"], dtype=float)
-    target_smiles_pair = np.array([';'.join([tup.target_chembl_id, tup.rdkit_smiles]) for tup in df.itertuples()])
-    hashed_ts_pair = np.array([_hash_string(x) for x in target_smiles_pair])
+    if df_clean.empty:
+        print("No valid entries to check for conflicts.")
+        return np.array([], dtype=int)
 
-    unique_hpair, counts_hpair = np.unique(hashed_ts_pair, return_counts=True)
-    duplicate_hpair = unique_hpair[counts_hpair > 1]
+    # Identify which activity class each entry belongs to
+    df_clean['is_active'] = df_clean['pchembl_value'] >= cutoff
+    df_clean['is_inactive'] = df_clean['pchembl_value'] < cutoff
 
-    print("Calculate target smiles pairs.")
-    start = time.time()
-    tenth_idx = np.linspace(0, len(duplicate_hpair), 10, dtype=int)
-    def dup_pvals(i, x):
-        if i in tenth_idx: print(f"Assessed {i}/{tenth_idx[-1]} pairs.")
-        return pvals[np.where(np.isin(hashed_ts_pair, x))[0]]
-    print(f"Finding duplicate target-smiles pairs")
-    result = Parallel(n_jobs=-2)(delayed(dup_pvals)(i, x) for i, x in enumerate(duplicate_hpair))
-    print(f"Calculated for {time.time() - start:.2f} s.")
-
-    with open('duplicate-target-smiles-pairs.pkl', 'wb') as f:
-        pickle.dump(result, f)
-
-    print("Writing target smiles pairs to `duplicate-target-smiles-pairs.pkl`.")
-
-    def is_conflicting(pchembl_arr):
-        return min(pchembl_arr) < cutoff and max(pchembl_arr) >= cutoff
-
-    conflicts = np.array([is_conflicting(x) for x in result])
-    duplicate_hpair_indices_to_exclude = np.where(conflicts)[0] 
-
-    exclude = duplicate_hpair[duplicate_hpair_indices_to_exclude]
-    exclude = np.where(np.isin(hashed_ts_pair, exclude))[0]
-    print(f"Found {len(exclude)} contradicting entries to exclude for cutoff {cutoff}.")
+    # For each compound-target pair, check if it has both active and inactive entries
+    grouped = df_clean.groupby(['rdkit_smiles', 'target_chembl_id'])
+    transforms = grouped[['is_active', 'is_inactive']].transform('any')
+    
+    # A pair is conflicting if it has at least one active AND at least one inactive entry
+    is_conflicting_pair = transforms['is_active'] & transforms['is_inactive']
+    
+    # Get the original indices of the rows belonging to conflicting pairs
+    exclude = df_clean.index[is_conflicting_pair].to_numpy()
+    
+    print(f"Found {len(exclude)} conflicting entries to exclude for cutoff {cutoff}.")
     return exclude
 
 def build_complete_dataset_matrix(df, exclude, cutoff = 6):
@@ -163,7 +152,7 @@ def build_complete_dataset_matrix(df, exclude, cutoff = 6):
         mask[exclude] = False
     
     # Also exclude empty smiles (failed standardizations)
-    all_smiles = df['rdkit_smiles'].values.astype(str)
+    all_smiles = df['rdkit_smiles'].fillna('').astype(str).values
     mask = mask & (all_smiles != '')
 
     # Filter data to valid entries only
