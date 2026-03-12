@@ -10,5 +10,10 @@ dependencies = [
     "pandas>=2.3.3",
     "psutil>=7.2.1",
     "rdkit>=2025.9.3",
-    "tqdm>=4.67.1",
+]
+
+[project.optional-dependencies]
+interactive = [
+    "ipykernel>=7.1.0",
+    "ipython>=8.38.0",
 ]

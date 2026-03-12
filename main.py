@@ -3,13 +3,10 @@ import sys
 import argparse
 import pandas as pd
 import sqlite3
-from tqdm import tqdm
 import numpy as np
-import time
 from rdkit import Chem
 from rdkit import RDLogger
 from joblib import Parallel, delayed
-import hashlib
 import pickle
 
 def process_database(db_path):
